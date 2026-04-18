@@ -237,7 +237,7 @@ if (is_logged_in()) {
 <div class="wrap">
     <?php if (!is_logged_in()): ?>
         <div class="card" style="max-width: 520px; margin: 10vh auto 0;">
-            <h1>SecureShare Login</h1>
+            <h1>Login</h1>
             <p class="muted">Nur Admin darf hochladen und Links erzeugen.</p>
 
             <?php if ($error !== ''): ?><p class="danger"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
