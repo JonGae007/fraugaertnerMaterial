@@ -23,7 +23,7 @@ if (!verify_csrf($csrf)) {
 
 $expiresAtUtc = trim((string) ($_POST['expires_at_utc'] ?? ''));
 $expiresAtLocal = trim((string) ($_POST['expires_at_local'] ?? ''));
-$maxDownloads = (int) ($_POST['max_downloads'] ?? 1);
+$maxDownloads = (int) ($_POST['max_downloads'] ?? 0);
 $fileIds = $_POST['file_ids'] ?? [];
 
 if (!is_array($fileIds) || empty($fileIds)) {
@@ -80,39 +80,37 @@ foreach ($files as $file) {
 }
 
 $links = read_json_file(LINKS_PATH);
-$created = 0;
-$lastShareUrl = '';
 $baseUrl = build_base_url();
 
+$selectedFileIds = [];
 foreach (array_keys($validIds) as $fileId) {
-    if (!isset($fileById[$fileId])) {
-        continue;
+    if (isset($fileById[$fileId])) {
+        $selectedFileIds[] = $fileId;
     }
-
-    $token = random_id(32);
-    $links[] = [
-        'id' => random_id(8),
-        'file_id' => $fileId,
-        'token_hash' => hash('sha256', $token),
-        'token_plain' => $token,
-        'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', $expiresTimestamp),
-        'max_downloads' => $maxDownloads,
-        'download_count' => 0,
-        'active' => true,
-        'created_at' => now_utc(),
-    ];
-
-    $created++;
-    $lastShareUrl = $baseUrl . '/download.php?token=' . urlencode($token);
 }
 
-if ($created === 0) {
+if (empty($selectedFileIds)) {
     header('Location: ' . $returnTo . '?msg=' . urlencode('Keine passenden Dateien gefunden.'));
     exit;
 }
 
+$token = random_id(32);
+$links[] = [
+    'id' => random_id(8),
+    'file_ids' => $selectedFileIds,
+    'token_hash' => hash('sha256', $token),
+    'token_plain' => $token,
+    'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', $expiresTimestamp),
+    'max_downloads' => $maxDownloads,
+    'download_count' => 0,
+    'active' => true,
+    'created_at' => now_utc(),
+];
+
+$lastShareUrl = $baseUrl . '/download.php?token=' . urlencode($token);
+
 write_json_file(LINKS_PATH, $links);
 $_SESSION['last_link'] = $lastShareUrl;
 
-header('Location: ' . $returnTo . '?msg=' . urlencode($created . ' Freigabelinks erstellt.'));
+header('Location: ' . $returnTo . '?msg=' . urlencode('1 Sammellink für ' . count($selectedFileIds) . ' Datei(en) erstellt.'));
 exit;

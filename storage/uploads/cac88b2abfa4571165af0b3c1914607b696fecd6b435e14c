@@ -1,0 +1,326 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/bootstrap.php';
+init_storage();
+ensure_session_started();
+
+if (!is_setup_complete()) {
+    header('Location: setup.php');
+    exit;
+}
+
+$error = '';
+$message = (string) ($_GET['msg'] ?? '');
+$lastLink = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'login') {
+    $token = (string) ($_POST['csrf_token'] ?? '');
+    if (!verify_csrf($token)) {
+        $error = 'Ungültige Anfrage.';
+    } else {
+        $username = trim((string) ($_POST['username'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+        $admin = get_admin_credentials();
+
+        if ($admin === null || !hash_equals($admin['username'], $username) || !password_verify($password, $admin['password_hash'])) {
+            $error = 'Anmeldedaten sind ungültig.';
+        } else {
+            session_regenerate_id(true);
+            $_SESSION['is_admin'] = true;
+            header('Location: admin.php');
+            exit;
+        }
+    }
+}
+
+if (is_logged_in()) {
+    $files = read_json_file(FILES_PATH);
+    $links = read_json_file(LINKS_PATH);
+
+    if (isset($_SESSION['last_link'])) {
+        $lastLink = (string) $_SESSION['last_link'];
+        unset($_SESSION['last_link']);
+    }
+
+    usort($files, static fn(array $a, array $b): int => strcmp($b['uploaded_at'] ?? '', $a['uploaded_at'] ?? ''));
+    usort($links, static fn(array $a, array $b): int => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
+}
+?>
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>SecureShare Admin</title>
+    <style>
+        :root {
+            --bg: #f7f6f2;
+            --card: #ffffff;
+            --accent: #005e4e;
+            --text: #1d2927;
+            --danger: #9f1010;
+            --border: #d9dfdb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 5% 10%, #d8efe8 0%, transparent 35%),
+                radial-gradient(circle at 90% 80%, #ffe5ce 0%, transparent 40%),
+                var(--bg);
+        }
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 1.2rem; }
+        .head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 10px 22px rgba(20, 30, 25, 0.05);
+        }
+        h1, h2, h3 { margin: .2rem 0 .6rem; }
+        label { display: block; margin-top: .7rem; font-weight: 600; }
+        input, select {
+            width: 100%;
+            padding: .6rem;
+            border: 1px solid #bcc9c3;
+            border-radius: 8px;
+            margin-top: .2rem;
+            background: #fff;
+        }
+        button {
+            margin-top: .9rem;
+            border: 0;
+            border-radius: 9px;
+            padding: .65rem .9rem;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        button.secondary { background: #30443f; }
+        .danger { color: var(--danger); font-weight: 700; }
+        .ok { color: #0a6f0a; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+        th, td { border-bottom: 1px solid var(--border); text-align: left; padding: .55rem .35rem; vertical-align: top; }
+        .muted { color: #5d6b67; font-size: .9rem; }
+        .pill { display: inline-block; padding: .1rem .45rem; border-radius: 99px; background: #ecf4f1; }
+        .two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .link-box {
+            word-break: break-all;
+            padding: .5rem;
+            border: 1px dashed #b8c9c2;
+            border-radius: 8px;
+            margin-top: .5rem;
+            background: #f8fbfa;
+        }
+        .qr { width: 140px; min-height: 140px; margin-top: .5rem; }
+        @media (max-width: 900px) {
+            .two { grid-template-columns: 1fr; }
+            table { font-size: .9rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <?php if (!is_logged_in()): ?>
+        <div class="card" style="max-width: 520px; margin: 10vh auto 0;">
+            <h1>SecureShare Login</h1>
+            <p class="muted">Nur Admin darf hochladen und Links erzeugen.</p>
+
+            <?php if ($error !== ''): ?><p class="danger"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+
+            <form method="post">
+                <input type="hidden" name="action" value="login">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+
+                <label for="username">Benutzername</label>
+                <input id="username" name="username" required autocomplete="username">
+
+                <label for="password">Passwort</label>
+                <input id="password" type="password" name="password" required autocomplete="current-password">
+
+                <button type="submit">Anmelden</button>
+            </form>
+        </div>
+    <?php else: ?>
+        <div class="head">
+            <div>
+                <h1>SecureShare Admin</h1>
+                <p class="muted">Ablauf-Links + QR-Codes + Speicherung außerhalb des öffentlichen Zugriffs.</p>
+            </div>
+            <form method="post" action="logout.php">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                <button class="secondary" type="submit">Logout</button>
+            </form>
+        </div>
+
+        <?php if ($message !== ''): ?><p class="ok"><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+
+        <div class="two">
+            <section class="card">
+                <h2>Datei hochladen</h2>
+                <form action="upload.php" method="post" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                    <label for="file">Datei</label>
+                    <input id="file" type="file" name="file" required>
+                    <button type="submit">Upload</button>
+                    <p class="muted">Maximal <?php echo (int) (MAX_UPLOAD_BYTES / 1024 / 1024); ?> MB pro Datei.</p>
+                </form>
+            </section>
+
+            <section class="card">
+                <h2>Letzter Freigabelink</h2>
+                <?php if ($lastLink !== ''): ?>
+                    <div class="link-box" id="latest-link"><?php echo htmlspecialchars($lastLink, ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div class="qr" id="latest-qr"></div>
+                    <button type="button" class="secondary" onclick="copyLatest()">Link kopieren</button>
+                <?php else: ?>
+                    <p class="muted">Noch kein neuer Link in dieser Session erzeugt.</p>
+                <?php endif; ?>
+            </section>
+        </div>
+
+        <section class="card">
+            <h2>Dateien</h2>
+            <?php if (empty($files)): ?>
+                <p class="muted">Noch keine Dateien hochgeladen.</p>
+            <?php else: ?>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Datei</th>
+                            <th>Größe</th>
+                            <th>Upload</th>
+                            <th>Freigabelink erzeugen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($files as $file): ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo htmlspecialchars((string) ($file['original_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></strong><br>
+                                <span class="muted"><?php echo htmlspecialchars((string) ($file['mime'] ?? 'unknown'), ENT_QUOTES, 'UTF-8'); ?></span>
+                            </td>
+                            <td><?php echo number_format(((int) ($file['size'] ?? 0)) / 1024, 1); ?> KB</td>
+                            <td><?php echo htmlspecialchars((string) ($file['uploaded_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td>
+                                <form action="create_link.php" method="post">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                                    <input type="hidden" name="file_id" value="<?php echo htmlspecialchars((string) ($file['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+
+                                    <label>Ablauf in Minuten</label>
+                                    <input type="number" name="ttl_minutes" min="1" max="10080" value="60" required>
+
+                                    <label>Max. Downloads</label>
+                                    <input type="number" name="max_downloads" min="1" max="1000" value="1" required>
+
+                                    <button type="submit">Link erstellen</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </section>
+
+        <section class="card">
+            <h2>Aktive Links</h2>
+            <?php if (empty($links)): ?>
+                <p class="muted">Noch keine Links erstellt.</p>
+            <?php else: ?>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Ablauf</th>
+                        <th>Downloads</th>
+                        <th>Status</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($links as $link): ?>
+                        <?php
+                            $isExpired = to_timestamp((string) ($link['expires_at'] ?? '')) < time();
+                            $isActive = !empty($link['active']) && !$isExpired && ((int) ($link['download_count'] ?? 0) < (int) ($link['max_downloads'] ?? 0));
+                        ?>
+                        <tr>
+                            <td><span class="pill"><?php echo htmlspecialchars((string) ($link['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span></td>
+                            <td><?php echo htmlspecialchars((string) ($link['expires_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td><?php echo (int) ($link['download_count'] ?? 0); ?> / <?php echo (int) ($link['max_downloads'] ?? 0); ?></td>
+                            <td><?php echo $isActive ? 'aktiv' : 'abgelaufen/verbrauch'; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+    function copyLatest() {
+        const el = document.getElementById('latest-link');
+        if (!el) return;
+        navigator.clipboard.writeText(el.textContent || '').catch(() => {});
+    }
+
+    (function initLatestQr() {
+        const linkEl = document.getElementById('latest-link');
+        const qrEl = document.getElementById('latest-qr');
+        if (!linkEl || !qrEl || typeof QRCode === 'undefined') return;
+        new QRCode(qrEl, {
+            text: linkEl.textContent || '',
+            width: 140,
+            height: 140,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    })();
+</script>
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
+</body>
+</html>

@@ -20,7 +20,7 @@ $fileId = trim((string) ($_POST['file_id'] ?? ''));
 $returnTo = (string) ($_POST['return_to'] ?? 'admin.php');
 $expiresAtUtc = trim((string) ($_POST['expires_at_utc'] ?? ''));
 $expiresAtLocal = trim((string) ($_POST['expires_at_local'] ?? ''));
-$maxDownloads = (int) ($_POST['max_downloads'] ?? 1);
+$maxDownloads = (int) ($_POST['max_downloads'] ?? 0);
 
 if ($returnTo !== 'admin.php' && $returnTo !== 'files.php') {
     $returnTo = 'admin.php';

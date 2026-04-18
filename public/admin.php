@@ -59,6 +59,30 @@ if (is_logged_in()) {
 
         $tokenPlain = (string) ($link['token_plain'] ?? '');
         $link['share_url'] = $tokenPlain !== '' ? ($baseUrl . '/download.php?token=' . urlencode($tokenPlain)) : '';
+
+        if (!empty($link['file_ids']) && is_array($link['file_ids'])) {
+            $names = [];
+            foreach ($link['file_ids'] as $fileId) {
+                $id = (string) $fileId;
+                if (isset($fileNameById[$id])) {
+                    $names[] = $fileNameById[$id];
+                }
+            }
+
+            if (empty($names)) {
+                $link['file_label'] = 'Dateien nicht gefunden';
+            } else {
+                $countNames = count($names);
+                $preview = implode(', ', array_slice($names, 0, 2));
+                if ($countNames > 2) {
+                    $preview .= ' +' . ($countNames - 2);
+                }
+                $link['file_label'] = $countNames . ' Dateien (' . $preview . ')';
+            }
+        } else {
+            $singleFileId = (string) ($link['file_id'] ?? '');
+            $link['file_label'] = (string) ($fileNameById[$singleFileId] ?? 'Datei nicht gefunden');
+        }
     }
     unset($link);
 
@@ -298,7 +322,7 @@ if (is_logged_in()) {
                     <?php foreach ($links as $link): ?>
                         <tr class="<?php echo !empty($link['is_expired_now']) ? 'danger-bg' : ''; ?>">
                             <td><span class="pill"><?php echo htmlspecialchars((string) ($link['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span></td>
-                            <td><?php echo htmlspecialchars((string) ($fileNameById[(string) ($link['file_id'] ?? '')] ?? 'Datei nicht gefunden'), ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td><?php echo htmlspecialchars((string) ($link['file_label'] ?? 'Datei nicht gefunden'), ENT_QUOTES, 'UTF-8'); ?></td>
                             <td><?php echo htmlspecialchars((string) ($link['expires_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
                             <td>
                                 <?php

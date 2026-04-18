@@ -224,10 +224,10 @@ usort($files, static fn(array $a, array $b): int => strcmp($b['uploaded_at'] ?? 
                 </div>
                 <div>
                     <label class="bulk-label" for="bulk-max">Max. Downloads (pro Link)</label>
-                    <input id="bulk-max" type="number" name="max_downloads" min="0" max="1000" value="1" required>
+                    <input id="bulk-max" type="number" name="max_downloads" min="0" max="1000" value="0" required>
                     <p class="muted" style="margin:.35rem 0 0;">Hinweis: 0 bedeutet unbegrenzt viele Downloads.</p>
                 </div>
-                <button type="submit">Links für markierte erstellen</button>
+                <button type="submit">Link erstellen</button>
             </div>
             <div class="bulk-actions" style="margin-top:.6rem;">
                 <button class="secondary" type="button" onclick="toggleAll(true)">Alle markieren</button>
@@ -322,7 +322,7 @@ usort($files, static fn(array $a, array $b): int => strcmp($b['uploaded_at'] ?? 
         const form = document.getElementById('bulk-share-form');
         if (!localInput || !hiddenUtc || !form) return;
 
-        const defaultDate = new Date(Date.now() + 60 * 60 * 1000);
+        const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
         const pad = (value) => String(value).padStart(2, '0');
         localInput.value = [
             defaultDate.getFullYear(),

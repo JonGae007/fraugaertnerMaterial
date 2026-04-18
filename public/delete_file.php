@@ -56,7 +56,34 @@ if ($storedName !== '') {
 }
 
 $links = read_json_file(LINKS_PATH);
-$links = array_values(array_filter($links, static fn(array $link): bool => (string) ($link['file_id'] ?? '') !== $fileId));
+$updatedLinks = [];
+foreach ($links as $link) {
+    if (!empty($link['file_ids']) && is_array($link['file_ids'])) {
+        $remaining = [];
+        foreach ($link['file_ids'] as $id) {
+            $idStr = (string) $id;
+            if ($idStr !== $fileId && $idStr !== '') {
+                $remaining[] = $idStr;
+            }
+        }
+
+        if (empty($remaining)) {
+            continue;
+        }
+
+        $link['file_ids'] = array_values(array_unique($remaining));
+        $updatedLinks[] = $link;
+        continue;
+    }
+
+    if ((string) ($link['file_id'] ?? '') === $fileId) {
+        continue;
+    }
+
+    $updatedLinks[] = $link;
+}
+
+$links = array_values($updatedLinks);
 write_json_file(LINKS_PATH, $links);
 
 if (isset($_SESSION['last_link'])) {

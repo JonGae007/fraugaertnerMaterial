@@ -1,1 +1,26 @@
-[]
+[
+    {
+        "id": "10c969fde3a8abea",
+        "stored_name": "b18d5c258cb56a64b769a26e8ec7a9cf990713fe45fba142",
+        "original_name": "67e56bb37ec686c8ff17783f_Alles ueber Springreiten.webp",
+        "mime": "image/webp",
+        "size": 83804,
+        "uploaded_at": "2026-04-18T16:33:53Z"
+    },
+    {
+        "id": "dd37897d45cf623f",
+        "stored_name": "cac88b2abfa4571165af0b3c1914607b696fecd6b435e14c",
+        "original_name": "admin.php",
+        "mime": "text/x-php",
+        "size": 13694,
+        "uploaded_at": "2026-04-18T16:33:53Z"
+    },
+    {
+        "id": "ebb1a4185926bc87",
+        "stored_name": "da0cf0152e5bf291b4bcb8721e359d7f8e9c66f50133d7b3",
+        "original_name": "Verschluesselung_Uebersicht.pdf",
+        "mime": "application/pdf",
+        "size": 2297,
+        "uploaded_at": "2026-04-18T16:33:53Z"
+    }
+]
