@@ -104,7 +104,7 @@ if (empty($linkedFiles)) {
 $tokenEsc = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
 $requestFileId = trim((string) ($_GET['file_id'] ?? ''));
 $downloadMode = trim((string) ($_GET['download'] ?? ''));
-$isBundleLink = count($linkedFileIds) > 1 || !empty($link['file_ids']);
+$isBundleLink = count($linkedFiles) > 1;
 
 $consumeDownload = static function () use (&$links, $linkIndex, $count, $max): void {
     $links[$linkIndex]['download_count'] = $count + 1;
@@ -249,6 +249,9 @@ $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 $isPdf  = $mime === 'application/pdf' || $ext === 'pdf';
 $isHtml = $mime === 'text/html' || in_array($ext, ['html', 'htm'], true);
 $disposition = ($isPdf || $isHtml) ? 'inline' : 'attachment';
+if ($isHtml) {
+    $mime = 'text/html; charset=UTF-8';
+}
 
 header('Content-Description: File Transfer');
 header('Content-Type: ' . $mime);
