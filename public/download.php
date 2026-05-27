@@ -245,8 +245,10 @@ $mime = $selectedFile['mime'];
 $size = (int) $selectedFile['size'];
 $path = $selectedFile['path'];
 
-$isPdf = $mime === 'application/pdf' || strcasecmp(pathinfo($filename, PATHINFO_EXTENSION), 'pdf') === 0;
-$disposition = $isPdf ? 'inline' : 'attachment';
+$ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+$isPdf  = $mime === 'application/pdf' || $ext === 'pdf';
+$isHtml = $mime === 'text/html' || in_array($ext, ['html', 'htm'], true);
+$disposition = ($isPdf || $isHtml) ? 'inline' : 'attachment';
 
 header('Content-Description: File Transfer');
 header('Content-Type: ' . $mime);
